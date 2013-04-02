@@ -381,6 +381,20 @@ function isEmpty(value) {
 
 function textInputType(scope, element, attr, ctrl, $sniffer, $browser) {
 
+  // Stash the existing value for auto-fill. We do this here instead of the
+  // NgModelController because .val behaves differently for each control
+  // (e.g. checkboxes).
+  //
+  // Background: Firefox will auto-fill remembered username/passwords before
+  // body onload runs, if we do not grab the value here, NgModelController
+  // will later write over the remembered values with whatever is in the model.
+  //
+  // Note that Chrome does not auto-fill remembered values before onload
+  // runs, see: https://code.google.com/p/chromium/issues/detail?id=224405
+  if (element.val() != "") {
+    ctrl.$existingValue = element.val();
+  }
+
   var listener = function() {
     var value = trim(element.val());
 
@@ -1023,6 +1037,12 @@ var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$
 
   $scope.$watch(function ngModelWatch() {
     var value = ngModelGet($scope);
+
+    // if the form was auto-filled and our model has no value, use the form value
+    if (isNaN(ctrl.$modelValue) && value === undefined && ctrl.$existingValue !== undefined) {
+      ctrl.$setViewValue(ctrl.$existingValue);
+      return;
+    }
 
     // if scope model value and ngModel value are out of sync
     if (ctrl.$modelValue !== value) {
